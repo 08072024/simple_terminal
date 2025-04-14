@@ -12,6 +12,7 @@ main_floppy.img: bootloader
 	mkfs.fat -F 12 -n "TROS" build/main_floppy.img
 	dd if=build/boot.bin of=build/main_floppy.img conv=notrunc
 	mcopy -i build/main_floppy.img build/main.bin "::main.bin"
+	mcopy -i build/main_floppy.img build/find_file.bin "::find_file.bin"
 
 #
 # Bootloader

@@ -1,8 +1,17 @@
 [bits 16]
 
-start:
+;
+; EXTERNAL SHIT
+;
+extern find_file
+
+main:
     mov si, loaded_msg
     call print
+
+    mov ax, go_to_address
+    push ax
+    call find_file
 
     cli
     hlt
@@ -18,3 +27,5 @@ print:
     ret
 
 loaded_msg: db 'Hello World from the program motherfuckers!', 0
+go_to_address: db 'MAIN    BIN'
+return_to_address: db 'MAIN    BIN'

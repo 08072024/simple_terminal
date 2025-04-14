@@ -1,11 +1,12 @@
-[org 0x7c00]
 [bits 16]
+
+global find_file
 
 ;
 ; FAT12 header
 ; If you want to know what the fuck any of this means I have documented it pretty good if you ask me but I'd go to Nanobyte's YouTube channel and watch part 3, where he explains it all very well!
 ;
-jmp short find_file
+jmp find_file
 nop
 
 bdb_oem:                    db 'MSWIN4.1'   ; Oem identifier
@@ -45,9 +46,6 @@ print:
   ret
 
 find_file:
-  pop ax
-  mov [file_return_bin], ax
-
   ; Setup data segments
   mov ax, 0
   mov ds, ax
@@ -61,7 +59,6 @@ find_file:
   ; Expected location
   push es
   push word .after
-  retf
 .after:
   ; Read something from floppy disk
   ; BIOS should set dl to drive number
@@ -116,7 +113,7 @@ find_file:
   xor bx, bx
   mov di, buffer ; di is being set to the start of the buffer, where the root directory is now sitting
 .search_return:
-  mov si, file_return_bin
+  pop si;mov si, file_return_bin
   mov cx, 11                      ; Compare up to 11 characters
   push di                         ; Save di
   repe cmpsb                      ; cmpsb = Compare String Bytes: This happens at memory addresses ds:si and es:di    and   repe = Repeat while Equal: Repeats until either cx = 0 or zero flag = 1
@@ -333,7 +330,7 @@ read_failed_msg:      db 'Failed to read', 0
 reset_failed_msg:     db 'Failure to reset', 0
 return_not_found_msg: db 'return file was not found', 0
 
-file_return_bin:      db 0
+;file_return_bin:      db 0
 return_cluster:       dw 0
 
 RETURN_LOAD_SEGMENT   equ 0x2000
