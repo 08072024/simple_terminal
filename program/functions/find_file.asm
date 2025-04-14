@@ -45,6 +45,9 @@ print:
   ret
 
 find_file:
+  pop ax
+  mov [file_return_bin], ax
+
   ; Setup data segments
   mov ax, 0
   mov ds, ax
@@ -109,28 +112,28 @@ find_file:
   mov bx, buffer
   call read_disk
 
-  ; Search for stage2.bin
+  ; Search for return.bin
   xor bx, bx
   mov di, buffer ; di is being set to the start of the buffer, where the root directory is now sitting
-.search_stage2:
-  mov si, file_stage2_bin
+.search_return:
+  mov si, file_return_bin
   mov cx, 11                      ; Compare up to 11 characters
   push di                         ; Save di
   repe cmpsb                      ; cmpsb = Compare String Bytes: This happens at memory addresses ds:si and es:di    and   repe = Repeat while Equal: Repeats until either cx = 0 or zero flag = 1
   pop di                          ; Return di to its original value
-  je .found_stage2
+  je .found_return
 
   add di, 32
   inc bx
   cmp bx, [bdb_dir_entries_count]
-  jl .search_stage2
+  jl .search_return
 
-  jmp stage2_not_found_error
+  jmp return_not_found_error
 
-.found_stage2:
+.found_return:
   ; di should have the address to the entry
   mov ax, [di + 26]               ; First logical cluster field (Offset of 26): save cluster address to ax
-  mov [stage2_cluster], ax        ; Assign stage2_cluster the address of the stage2's cluster
+  mov [return_cluster], ax        ; Assign return_cluster the address of the return's cluster
   
   ; Load FAT from disk into memory
   mov ax, [bdb_reserved_sectors]
@@ -139,14 +142,14 @@ find_file:
   mov dl, [ebr_drive_number]
   call read_disk
 
-  ; Read stage2 and process FAT chain
+  ; Read return and process FAT chain
   mov bx, RETURN_LOAD_SEGMENT
   mov es, bx
   mov bx, RETURN_LOAD_OFFSET
 
-.load_stage2_loop:
+.load_return_loop:
   ; Read next cluster
-  mov ax, [stage2_cluster]
+  mov ax, [return_cluster]
   add ax, 31 ; FIX ME!
   mov cl, 1
   mov dl, [ebr_drive_number]
@@ -155,7 +158,7 @@ find_file:
   add bx, [bdb_bytes_per_sector]
 
   ; Compute location of the next cluster
-  mov ax, [stage2_cluster]
+  mov ax, [return_cluster]
   mov cx, 3
   mul cx
   mov cx, 2
@@ -179,11 +182,11 @@ find_file:
   cmp ax, 0x0ff8
   jae .read_finish
 
-  mov [stage2_cluster], ax
-  jmp .load_stage2_loop
+  mov [return_cluster], ax
+  jmp .load_return_loop
 
 .read_finish:
-  ; Jump to our stage2
+  ; Jump to our return
   mov dl, [ebr_drive_number]        ; Boot device in dl
 
   mov ax, RETURN_LOAD_SEGMENT       ; Set segment registers
@@ -212,8 +215,8 @@ reset_error:
   call print
   hlt
 
-stage2_not_found_error:
-  mov si, stage2_not_found_msg
+return_not_found_error:
+  mov si, return_not_found_msg
   call print
   hlt
 
@@ -328,10 +331,10 @@ disk_reset:
 msg:                  db 'Loading...', 0
 read_failed_msg:      db 'Failed to read', 0
 reset_failed_msg:     db 'Failure to reset', 0
-stage2_not_found_msg: db 'Stage 2 was not found', 0
+return_not_found_msg: db 'return file was not found', 0
 
-file_stage2_bin:      db 'MAIN    BIN'
-stage2_cluster:       dw 0
+file_return_bin:      db 0
+return_cluster:       dw 0
 
 RETURN_LOAD_SEGMENT   equ 0x2000
 RETURN_LOAD_OFFSET    equ 0
