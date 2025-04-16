@@ -7,18 +7,25 @@ all: floppy_image
 #
 floppy_image: main_floppy.img
 
-main_floppy.img: bootloader
+main_floppy.img: bootloader program
 	dd if=/dev/zero of=build/main_floppy.img bs=512 count=2880
 	mkfs.fat -F 12 -n "TROS" build/main_floppy.img
 	dd if=build/boot.bin of=build/main_floppy.img conv=notrunc
 	mcopy -i build/main_floppy.img build/main.bin "::main.bin"
-	mcopy -i build/main_floppy.img build/find_file.bin "::find_file.bin"
+	mcopy -i build/main_floppy.img build/pm.bin "::pm.bin"
 
 #
 # Bootloader
 #
-bootloader: boot main
+bootloader: boot # main
 
 boot: build/boot.bin
 
-main: build/main.bin
+#main: build/main.bin
+
+#
+# Program code
+#
+program: pm
+
+pm: build/pm.bin
