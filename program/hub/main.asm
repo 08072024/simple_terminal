@@ -60,9 +60,6 @@ read_input:
   jmp read_input
 
 newline:
-  ; Save bx
-  push bx
-
   ; Get current cursor position first
   mov ah, 0x03
   mov bh, 0
@@ -76,14 +73,7 @@ newline:
   mov ah, 0x02
   int 0x10
 
-  mov si, hub_question
-  call print
-
-  ; Return bx
-  pop bx
-
-  mov bx, 6 ; Number of iterations of the outer loop which is also the amount of commands
-  mov ax, 3 ; Number of letters in each command
+  mov di, 7 ; Number of iterations of the outer loop which is also the amount of commands + 1 incase it can't find the command and then we can just check if cx is 0!
   jmp evaluate_command_line
 
 backspace:
@@ -140,23 +130,46 @@ backspace:
   jmp read_input
 .fuckoff:
   inc dl
-  mov ah, 0x02
+  mov ah, 0x02 
   int 0x10
   jmp read_input
 
 ;
 ; FORMAT
 ;   - first 3 bytes are the command
-;   - Next 63 bytes are the initial destination
-;   - Last 63 bytes are the ending destination (Only mov needs this so that means that it can just be ignored by all the other functions
+; 
+;   For the station! Really important that I remember my new way of doing this!
+;   - Next 128 bytes are the initial destination
+;   - Last 128 bytes are the ending destination, only the move command needs this so that means that it can just be ignored by all the other functions
+
+;
+; Variables
+;   - di = The counter for the amount of times the outer loop must be looped through to check every possible command
+;   - bx = The counter for the letters to be checked in each command
+;
 
 evaluate_command_line:
-  
+  xor bx, bx ; Reset the counter for the letters to be checked in each command
+  test di, di ; Check if di is equal to zero yet
+  jz unknown_command ; Error if no command is found from the list
+  dec di ; Sub 1
 .inner_loop:
-  hlt
-.found_command
-  add ax, 6          ; Move SI forward 6 bytes
-  mov al, [commands + ax] ; Load the byte at commands + si into AL
+  cmp bx, 4 ; Check if bx has gone through every letter
+  je found_command ; Jmp to found_command if a command has been identified
+  mov al, [buffer + bx] ; Move the last letter from the buffer to al
+  add bx, di ; Add the index of the commands checked to bx to get the correct offset for the next letter to check in the commands list
+  mov ah, [commands + bx] ; Get the 3rd last unchecked letter from the commands list
+  sub bx, di ; Put bx back to the correct index for the user input buffer
+
+  cmp al, ah ; Compare the letter from the user input buffer to the letter from the commands list
+  jne evaluate_command_line ; If the letters are not the same then jmp to the outer loop to check the next command
+  
+  inc bx ; Add 1 to bx for the next unchecked letter
+  jmp .inner_loop ; Jump to the beginning of the loop so that the next command and letter can be checked
+
+found_command:
+  mov si, di
+  mov al, [commands + si] ; Load the byte at commands + si into AL
   mov [command_file_bin], al ; Store AL into command_file_bin
 .after:
   ; Read something from floppy disk
@@ -204,7 +217,7 @@ evaluate_command_line:
   mov bx, buffer
   call read_disk
 
-  ; Search for station.bin
+  ; Search for main.bin
   xor bx, bx
   mov di, buffer ; di is being set to the start of the buffer, where the root directory is now sitting
 .search_station:
@@ -404,17 +417,20 @@ unknown_command:
   jne unknown_command                 ; If bx != 4 jmp to the beginning of the label
   mov si, unknown_location_response   ; mov the error message to si
   call print                          ; Print the error message on to the screen
-  jmp read_input                      ; Go back to read_input
+
+  jmp start                      ; Go back to read_input
 
 read_error:
   mov si, read_failed_msg
   call print
-  jmp read_input
+
+  jmp start
 
 reset_error:
   mov si, reset_failed_msg
   call print
-  jmp read_input
+
+  jmp start
 
 wait_key_and_reboot:
   mov ah, 0
@@ -449,27 +465,44 @@ ent: db 'ent', 0
 ;
 ;  Storage for shit
 ;
-buffer:             times 256 db 0 ; Fills buffer with 256 bytes of 0's
-command:            times 3 db 0 ; Where to store the command that was entered
-initial_location:   times 128 db 0 ; Where the initial location of the files will be entered
-final_location:     times 128 db 0 ; Where the final location of the files will be entered
+buffer:             times 5 db 0 ; Fills buffer with 256 bytes of 0's
 
 ;
 ; Variables
 ;
-commands: 
-  db 'mov',0          ; 1
-  db 'crt',0          ; 2
-  db 'sve',0          ; 3
-  db 'del',0          ; 4
-  db 'ent',0          ; 5
-  db 'mod',0          ; 6
-  db 'MOV     BIN',0  ; 1 + 6
-  db 'CRT     BIN',0  ; 2 + 6
-  db 'DEL     BIN',0  ; 3 + 6
-  db 'ENT     BIN',0  ; 4 + 6
-  db 'SVE     BIN',0  ; 5 + 6
-  db 'MOD     BIN',0  ; 6 + 6
+commands:
+  ; Move command
+  db 'm' ; 1
+  db 'o' ; 2
+  db 'v' ; 3
+  ; Create command:
+  db 'c' ; 4
+  db 'r' ; 5
+  db 't' ; 6
+  ; Delete command
+  db 'd' ; 7
+  db 'e' ; 8
+  db 'l' ; 9
+  ; Enter command
+  db 'e' ; 10
+  db 'n' ; 11
+  db 't' ; 12
+  ; Save command
+  db 's' ; 13
+  db 'v' ; 14
+  db 'e' ; 15
+  ; Modify command
+  db 'm' ; 16
+  db 'o' ; 17
+  db 'd' ; 18
+
+commands_file_bin:
+  db 'MOV     BIN',0  ; 1
+  db 'CRT     BIN',0  ; 2
+  db 'DEL     BIN',0  ; 3
+  db 'ENT     BIN',0  ; 4
+  db 'SVE     BIN',0  ; 5
+  db 'MOD     BIN',0  ; 6
 
 bdb_oem:                    db 'MSWIN4.1'             ; Oem identifier
 bdb_bytes_per_sector:       dw 512                    ; 512 bytes/sector
@@ -497,5 +530,5 @@ command_file_bin:           db 0
 
 station_cluster:            dw 0
 
-STATION_LOAD_SEGMENT        equ 0x2000
+STATION_LOAD_SEGMENT        equ 0x4000
 STATION_LOAD_OFFSET         equ 0
