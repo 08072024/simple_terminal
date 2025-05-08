@@ -157,7 +157,6 @@ start:
     ; Entry offset+26 = first cluster
     mov ax, [di+26]
     mov [stage2_cluster], ax
-
     ; -------------------------------------------------------------
     ; Load FAT table (we only need first copy for cluster chain)
     ; -------------------------------------------------------------

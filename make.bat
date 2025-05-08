@@ -3,18 +3,24 @@ setlocal
 
 echo Creating necessary directories...
 mkdir build 2>nul
-mkdir bin 2>nul
 
 echo Assembling bootloader...
-nasm -f bin bootloader/new_boot.asm -o build\boot.bin
+nasm -f bin bootloader/boot.asm -o build/boot.bin
 
-echo Assembling kernel entry...
-echo nasm -f bin program/hub/main.asm -o build\main.bin
+echo Assembling stage 2 loader...
+nasm -f bin program/hub/test_main.asm -o build/main.bin
 
-echo Merging bootloader and stage2...
-copy /b build\boot.bin+bin\main.bin build\os.bin > nul
+echo Merging bootloader and stage 2 into os.bin...
+
+:: Copy bootloader (should be exactly 512 bytes)
+copy /b build\boot.bin + build\main.bin build\os.bin >nul
+
+:: Make sure os.bin is at least 1.44MB for QEMU floppy
+fsutil file createnew build\padding.bin 1474560 >nul
+copy /b build\os.bin + build\padding.bin build\floppy.img >nul
+del build\padding.bin
 
 echo Booting QEMU...
-qemu-system-i386 -fda build\os.bin
+qemu-system-i386 -fda build\floppy.img
 
 endlocal
