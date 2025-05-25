@@ -30,7 +30,7 @@ bdb_large_sector_count:     dd 0                ; Large sector count
 
 ; --------------------------------
 ; Extended Boot Record (EBR)
-; --------------------------------
+; --------------stat------------------
 ebr_drive_number:           db 0                ; BIOS drive number
                             db 0                ; Reserved
 ebr_signature:              db 0x29             ; EBR signature
@@ -317,3 +317,19 @@ disk_reset:
 ; Boot sector padding and signature
 times 510-($-$$) db 0
 dw 0xAA55
+
+.read_finish:
+    ; Jump to our station
+    mov dl, [ebr_drive_number]        ; Boot device in dl
+  
+    mov ax, station_LOAD_SEGMENT       ; Set segment registers
+    mov ds, ax
+    mov es, ax
+  
+    jmp station_LOAD_SEGMENT:station_LOAD_OFFSET
+  
+    
+    jmp wait_key_and_reboot
+  
+    cli
+    hlt
